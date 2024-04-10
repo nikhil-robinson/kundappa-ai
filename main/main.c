@@ -23,37 +23,23 @@ int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 srmodel_list_t *models = NULL;
 
-esp_codec_dev_handle_t mic_handel = NULL;
+esp_codec_dev_handle_t mic_codec_dev = NULL;
 
 void feed_Task(void *arg)
 {
-    ESP_LOGI(TAG, "Feed Task");
-    size_t bytes_read = 0;
-    esp_afe_sr_data_t *afe_data = (esp_afe_sr_data_t *) arg;
+    esp_afe_sr_data_t *afe_data = arg;
     int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
-    int feed_channel = 3;
-    ESP_LOGI(TAG, "audio_chunksize=%d, feed_channel=%d", audio_chunksize, feed_channel);
-
-    int16_t *audio_buffer = heap_caps_malloc(audio_chunksize * sizeof(int16_t) * feed_channel, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-    assert(audio_buffer);
+    int nch = afe_handle->get_channel_num(afe_data);
+    int feed_channel = esp_get_feed_channel();
+    assert(nch <= feed_channel);
+    int16_t *i2s_buff = malloc(audio_chunksize * sizeof(int16_t) * feed_channel);
+    assert(i2s_buff);
 
     while (true) {
+        esp_get_feed_data(false, i2s_buff, audio_chunksize * sizeof(int16_t) * feed_channel);
 
-        ESP_ERROR_CHECK(esp_codec_dev_read(mic_handel, audio_buffer, audio_chunksize * I2S_CHANNEL_NUM * sizeof(int16_t)));
-
-        for (int  i = audio_chunksize - 1; i >= 0; i--) {
-            audio_buffer[i * 3 + 2] = 0;
-            audio_buffer[i * 3 + 1] = audio_buffer[i * 2 + 1];
-            audio_buffer[i * 3 + 0] = audio_buffer[i * 2 + 0];
-        } 
-
-        afe_handle->feed(afe_data, audio_buffer);
+        afe_handle->feed(afe_data, i2s_buff);
     }
-    if (audio_buffer) {
-        free(audio_buffer);
-        audio_buffer = NULL;
-    }
-    vTaskDelete(NULL);
 }
 
 void detect_Task(void *arg)
@@ -169,13 +155,22 @@ void detect_Task(void *arg)
 
 void app_main(void)
 {
+    bsp_i2c_init();
 
 
-    mic_handel = bsp_audio_codec_microphone_init();
+    mic_codec_dev = bsp_audio_codec_microphone_init();
+    assert(mic_codec_dev);
+    esp_codec_dev_set_in_gain(mic_codec_dev, 50.0);
+
+    esp_codec_dev_sample_info_t fs = {
+        .sample_rate = 16000,
+        .channel = 1,
+        .bits_per_sample = 16,
+    };
+    esp_codec_dev_open(mic_codec_dev, &fs);
 
     models = esp_srmodel_init("model"); // partition label defined in partitions.csv
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
-
     afe_config_t afe_config = AFE_CONFIG_DEFAULT();
     afe_config.wakenet_model_name = esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);;
     afe_config.aec_init = false;
