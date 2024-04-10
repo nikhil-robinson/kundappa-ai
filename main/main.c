@@ -12,9 +12,9 @@
 #include "model_path.h"
 #include "esp_process_sdkconfig.h"
 #include "esp_mn_speech_commands.h"
+#include "esp_board_init.h"
 
 #include "esp_log.h"
-#include "bsp/esp-bsp.h"
 
 #define TAG "KUNDAPPA"
 #define I2S_CHANNEL_NUM      2
@@ -23,7 +23,6 @@ int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 srmodel_list_t *models = NULL;
 
-esp_codec_dev_handle_t mic_codec_dev = NULL;
 
 void feed_Task(void *arg)
 {
@@ -55,7 +54,7 @@ void detect_Task(void *arg)
 
 
     esp_mn_commands_clear();                       // Clear commands that already exist 
-    esp_mn_commands_add(1, "Hi Kndappa");   // add a command
+    esp_mn_commands_add(1, "Hi pebble");   // add a command
     esp_mn_commands_add(2, "Turn on the light");  // add a command
     esp_mn_commands_update();                      // update commands
 
@@ -155,21 +154,8 @@ void detect_Task(void *arg)
 
 void app_main(void)
 {
-    bsp_i2c_init();
-
-
-    mic_codec_dev = bsp_audio_codec_microphone_init();
-    assert(mic_codec_dev);
-    esp_codec_dev_set_in_gain(mic_codec_dev, 50.0);
-
-    esp_codec_dev_sample_info_t fs = {
-        .sample_rate = 16000,
-        .channel = 1,
-        .bits_per_sample = 16,
-    };
-    esp_codec_dev_open(mic_codec_dev, &fs);
-
     models = esp_srmodel_init("model"); // partition label defined in partitions.csv
+    ESP_ERROR_CHECK(esp_board_init(16000, 1, 16));
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
     afe_config_t afe_config = AFE_CONFIG_DEFAULT();
     afe_config.wakenet_model_name = esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);;
