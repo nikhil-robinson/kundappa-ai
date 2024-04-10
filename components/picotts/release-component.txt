@@ -1,0 +1,1 @@
+compote component upload --name picotts --service-profile release

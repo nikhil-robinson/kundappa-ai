@@ -13,8 +13,12 @@
 #include "esp_process_sdkconfig.h"
 #include "esp_mn_speech_commands.h"
 #include "esp_board_init.h"
-
 #include "esp_log.h"
+#include "picotts.h"
+
+#define TTS_CORE 1
+
+
 
 #define TAG "KUNDAPPA"
 #define I2S_CHANNEL_NUM      2
@@ -23,6 +27,16 @@ int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 srmodel_list_t *models = NULL;
 
+const char greeting[] = CONFIG_BOOT_GREETING_MSG;
+
+static esp_codec_dev_handle_t spk_codec;
+
+extern esp_err_t bsp_play_buffer(void *buffer, unsigned count);
+
+static void on_samples(int16_t *buf, unsigned count)
+{
+  bsp_play_buffer(buf,count);
+}
 
 void feed_Task(void *arg)
 {
