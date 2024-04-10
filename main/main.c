@@ -1,10 +1,3 @@
-/*
-   This example code is in the Public Domain (or CC0 licensed, at your option.)
-
-   Unless required by applicable law or agreed to in writing, this
-   software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-   CONDITIONS OF ANY KIND, either express or implied.
-*/
 #include <stdio.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
@@ -18,32 +11,19 @@
 #include "esp_mn_models.h"
 #include "model_path.h"
 #include "esp_process_sdkconfig.h"
+#include "esp_mn_speech_commands.h"
+
+#include "esp_log.h"
+#include "bsp/esp-bsp.h"
+
+#define TAG "KUNDAPPA"
+#define I2S_CHANNEL_NUM      2
 
 int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
-static volatile int task_flag = 0;
 srmodel_list_t *models = NULL;
-static int play_voice = -2;
 
-void play_music(void *arg)
-{
-    while (task_flag) {
-        switch (play_voice) {
-        case -2:
-            vTaskDelay(10);
-            break;
-        case -1:
-            wake_up_action();
-            play_voice = -2;
-            break;
-        default:
-            speech_commands_action(play_voice);
-            play_voice = -2;
-            break;
-        }
-    }
-    vTaskDelete(NULL);
-}
+esp_codec_dev_handle_t mic_handel = NULL;
 
 void feed_Task(void *arg)
 {
@@ -58,8 +38,8 @@ void feed_Task(void *arg)
     assert(audio_buffer);
 
     while (true) {
-        esp_get_feed_data(false, i2s_buff, audio_chunksize * sizeof(int16_t) * feed_channel);
-        bsp_i2s_read((char *)audio_buffer, audio_chunksize * I2S_CHANNEL_NUM * sizeof(int16_t), &bytes_read, portMAX_DELAY);
+
+        ESP_ERROR_CHECK(esp_codec_dev_read(mic_handel, audio_buffer, audio_chunksize * I2S_CHANNEL_NUM * sizeof(int16_t)));
 
         for (int  i = audio_chunksize - 1; i >= 0; i--) {
             audio_buffer[i * 3 + 2] = 0;
@@ -104,7 +84,7 @@ void detect_Task(void *arg)
 
 
     printf("------------detect start------------\n");
-    while (task_flag) {
+    while (true) {
         afe_fetch_result_t* res = afe_handle->fetch(afe_data); 
         if (!res || res->ret_value == ESP_FAIL) {
             ESP_LOGW(TAG, "AFE Fetch Fail");
@@ -189,7 +169,9 @@ void detect_Task(void *arg)
 
 void app_main(void)
 {
-    bsp_i2c_init();
+
+
+    mic_handel = bsp_audio_codec_microphone_init();
 
     models = esp_srmodel_init("model"); // partition label defined in partitions.csv
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
@@ -198,17 +180,7 @@ void app_main(void)
     afe_config.wakenet_model_name = esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);;
     afe_config.aec_init = false;
     esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
-
-    task_flag = 1;
     xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void*)afe_data, 5, NULL, 1);
     xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void*)afe_data, 5, NULL, 0);
-
-    return ESP_OK;
-err:
-    app_sr_stop();
-    return ret;
-
-    //bsp_i2s_read((char *)audio_buffer, audio_chunksize * I2S_CHANNEL_NUM * sizeof(int16_t), &bytes_read, portMAX_DELAY);
-
 
 }
