@@ -1,181 +1,202 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-#include "esp_wn_iface.h"
-#include "esp_wn_models.h"
 #include "esp_afe_sr_iface.h"
 #include "esp_afe_sr_models.h"
-#include "esp_mn_iface.h"
-#include "esp_mn_models.h"
-#include "model_path.h"
-#include "esp_process_sdkconfig.h"
-#include "esp_mn_speech_commands.h"
 #include "esp_board_init.h"
 #include "esp_log.h"
+#include "esp_mn_iface.h"
+#include "esp_mn_models.h"
+#include "esp_mn_speech_commands.h"
+#include "esp_process_sdkconfig.h"
+#include "esp_wn_iface.h"
+#include "esp_wn_models.h"
+#include "model_path.h"
 #include "picotts.h"
+#include <string.h>
 
 #define TTS_CORE 1
 
-
-
 #define TAG "KUNDAPPA"
-#define I2S_CHANNEL_NUM      2
+#define I2S_CHANNEL_NUM 2
+
+#define QUEUE_LENGTH 5
+#define MAX_STRING_LENGTH 20
 
 int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 srmodel_list_t *models = NULL;
+QueueHandle_t xQueue = NULL;
 
-const char greeting[] = CONFIG_BOOT_GREETING_MSG;
+const char greeting[] = "This is a test";
 
-static esp_codec_dev_handle_t spk_codec;
-
-extern esp_err_t bsp_play_buffer(void *buffer, unsigned count);
-
-static void on_samples(int16_t *buf, unsigned count)
-{
-  bsp_play_buffer(buf,count);
+static void on_samples(int16_t *buf, unsigned count) {
+  esp_audio_play(buf, count * 2, 0);
 }
 
-void feed_Task(void *arg)
-{
-    esp_afe_sr_data_t *afe_data = arg;
-    int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
-    int nch = afe_handle->get_channel_num(afe_data);
-    int feed_channel = esp_get_feed_channel();
-    assert(nch <= feed_channel);
-    int16_t *i2s_buff = malloc(audio_chunksize * sizeof(int16_t) * feed_channel);
-    assert(i2s_buff);
+void feed_Task(void *arg) {
+  esp_afe_sr_data_t *afe_data = arg;
+  int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
+  int nch = afe_handle->get_channel_num(afe_data);
+  int feed_channel = esp_get_feed_channel();
+  assert(nch <= feed_channel);
+  int16_t *i2s_buff = malloc(audio_chunksize * sizeof(int16_t) * feed_channel);
+  assert(i2s_buff);
 
-    while (true) {
-        esp_get_feed_data(false, i2s_buff, audio_chunksize * sizeof(int16_t) * feed_channel);
+  while (true) {
+    esp_get_feed_data(false, i2s_buff,
+                      audio_chunksize * sizeof(int16_t) * feed_channel);
 
-        afe_handle->feed(afe_data, i2s_buff);
+    afe_handle->feed(afe_data, i2s_buff);
+  }
+}
+
+void detect_Task(void *arg) {
+  esp_afe_sr_data_t *afe_data = (esp_afe_sr_data_t *)arg;
+  int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
+  char *mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_ENGLISH);
+
+  printf("multinet:%s\n", mn_name);
+  esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
+  model_iface_data_t *model_data = multinet->create(mn_name, 6000);
+
+  esp_mn_commands_clear();             // Clear commands that already exist
+  esp_mn_commands_add(1, "Hi pebble"); // add a command
+  esp_mn_commands_add(2, "Turn on the light"); // add a command
+  esp_mn_commands_update();                    // update commands
+
+  int mu_chunksize = multinet->get_samp_chunksize(model_data);
+  assert(mu_chunksize == afe_chunksize);
+
+  multinet->print_active_speech_commands(model_data);
+  afe_handle->disable_wakenet(afe_data);
+  afe_handle->disable_aec(afe_data);
+
+  char message[MAX_STRING_LENGTH];
+
+  printf("------------detect start------------\n");
+  while (true) {
+    afe_fetch_result_t *res = afe_handle->fetch(afe_data);
+    if (!res || res->ret_value == ESP_FAIL) {
+      ESP_LOGW(TAG, "AFE Fetch Fail");
+      continue;
     }
-}
+    // multinet->clean(model_data);
+    esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
+    if (mn_state == ESP_MN_STATE_DETECTING) {
+      continue;
+    }
+    if (mn_state == ESP_MN_STATE_DETECTED) {
+      esp_mn_results_t *mn_result = multinet->get_results(model_data);
+      for (int i = 0; i < mn_result->num; i++) {
+        printf("WAKE WORD %d, command_id: %d, phrase_id: %d, string: %s, prob: "
+               "%f\n",
+               i + 1, mn_result->command_id[i], mn_result->phrase_id[i],
+               mn_result->string, mn_result->prob[i]);
+        if (mn_result->command_id[i] == 1) {
+          printf("-----------Wake word detected-----------\n");
+          strcpy(message, "Hello, Nikhil!");
+          while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE)
+            ;
 
-void detect_Task(void *arg)
-{
-    esp_afe_sr_data_t *afe_data = (esp_afe_sr_data_t *)arg;
-    int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
-    char *mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_ENGLISH);
+          detect_flag = 1;
+        }
+      }
+      // multinet->clean(model_data);
+    }
+    if (mn_state == ESP_MN_STATE_TIMEOUT) {
+      esp_mn_results_t *mn_result = multinet->get_results(model_data);
+      printf("Wake word string:%s\n", mn_result->string);
+      multinet->clean(model_data);
+      detect_flag = 0;
+      continue;
+    }
+    if (detect_flag == 1) {
+      printf("-----------listening-----------\n");
+      res = afe_handle->fetch(afe_data);
+      if (!res || res->ret_value == ESP_FAIL) {
+        printf("fetch error!\n");
+        break;
+      }
 
-
-    printf("multinet:%s\n", mn_name);
-    esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
-    model_iface_data_t *model_data = multinet->create(mn_name, 6000);
-
-
-    esp_mn_commands_clear();                       // Clear commands that already exist 
-    esp_mn_commands_add(1, "Hi pebble");   // add a command
-    esp_mn_commands_add(2, "Turn on the light");  // add a command
-    esp_mn_commands_update();                      // update commands
-
-
-    int mu_chunksize = multinet->get_samp_chunksize(model_data);
-    assert(mu_chunksize == afe_chunksize);
-
-
-    multinet->print_active_speech_commands(model_data);
-    afe_handle->disable_wakenet(afe_data);
-    afe_handle->disable_aec(afe_data);
-
-
-    printf("------------detect start------------\n");
-    while (true) {
-        afe_fetch_result_t* res = afe_handle->fetch(afe_data); 
+      esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
+      // if (mn_state == ESP_MN_STATE_DETECTING) {
+      //     continue;
+      // }
+      while (mn_state == ESP_MN_STATE_DETECTING) {
+        res = afe_handle->fetch(afe_data);
         if (!res || res->ret_value == ESP_FAIL) {
-            ESP_LOGW(TAG, "AFE Fetch Fail");
-            continue;
+          printf("fetch error!\n");
+          break;
         }
-        // multinet->clean(model_data);
-        esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
-        if (mn_state == ESP_MN_STATE_DETECTING) {
-            continue;
+
+        mn_state = multinet->detect(model_data, res->data);
+      }
+
+      if (mn_state == ESP_MN_STATE_DETECTED) {
+        esp_mn_results_t *mn_result = multinet->get_results(model_data);
+        for (int i = 0; i < mn_result->num; i++) {
+          printf("Command TOP %d, command_id: %d, phrase_id: %d, string: %s, "
+                 "prob: %f\n",
+                 i + 1, mn_result->command_id[i], mn_result->phrase_id[i],
+                 mn_result->string, mn_result->prob[i]);
+
+          
         }
-        if (mn_state == ESP_MN_STATE_DETECTED) {
-            esp_mn_results_t *mn_result = multinet->get_results(model_data);
-            for (int i = 0; i < mn_result->num; i++) {
-                printf("WAKE WORD %d, command_id: %d, phrase_id: %d, string: %s, prob: %f\n", 
-                i+1, mn_result->command_id[i], mn_result->phrase_id[i], mn_result->string, mn_result->prob[i]);
-                if (mn_result->command_id[i] == 1)
-                {
-                    printf("-----------Wake word detected-----------\n");
-                    detect_flag = 1;
-                }
-            }
-            // multinet->clean(model_data);
-        }
-        if (mn_state == ESP_MN_STATE_TIMEOUT) {
-            esp_mn_results_t *mn_result = multinet->get_results(model_data);
-            printf("Wake word string:%s\n", mn_result->string);
-            multinet->clean(model_data);
-            detect_flag = 0;
-            continue;
-        }
-        if (detect_flag == 1)
-        {
-             printf("-----------listening-----------\n");
-            res = afe_handle->fetch(afe_data); 
-            if (!res || res->ret_value == ESP_FAIL) {
-                printf("fetch error!\n");
-                break;
-            }
-            
-            esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
-            // if (mn_state == ESP_MN_STATE_DETECTING) {
-            //     continue;
-            // }
-            while (mn_state == ESP_MN_STATE_DETECTING)
-            {
-                res = afe_handle->fetch(afe_data); 
-                if (!res || res->ret_value == ESP_FAIL) {
-                    printf("fetch error!\n");
-                    break;
-                }
-                
-                mn_state = multinet->detect(model_data, res->data);
-            }
-            
-            if (mn_state == ESP_MN_STATE_DETECTED) {
-                esp_mn_results_t *mn_result = multinet->get_results(model_data);
-                for (int i = 0; i < mn_result->num; i++) {
-                    printf("Command TOP %d, command_id: %d, phrase_id: %d, string: %s, prob: %f\n", 
-                    i+1, mn_result->command_id[i], mn_result->phrase_id[i], mn_result->string, mn_result->prob[i]);
-                }
-                multinet->clean(model_data);
-                detect_flag = 0;
-               
-            }
-            if (mn_state == ESP_MN_STATE_TIMEOUT) {
-                esp_mn_results_t *mn_result = multinet->get_results(model_data);
-                printf("Command string:%s\n", mn_result->string);
-                multinet->clean(model_data);
-                detect_flag = 0;
-                continue;
-            }
-        }
-        
+        multinet->clean(model_data);
+        detect_flag = 0;
+      }
+      if (mn_state == ESP_MN_STATE_TIMEOUT) {
+        esp_mn_results_t *mn_result = multinet->get_results(model_data);
+        printf("Command string:%s\n", mn_result->string);
+        multinet->clean(model_data);
+        detect_flag = 0;
+        continue;
+      }
     }
-    if (model_data) {
-        multinet->destroy(model_data);
-        model_data = NULL;
-    }
-    printf("detect exit\n");
-    vTaskDelete(NULL);
+  }
+  if (model_data) {
+    multinet->destroy(model_data);
+    model_data = NULL;
+  }
+  picotts_shutdown();
+  printf("detect exit\n");
+  vTaskDelete(NULL);
 }
 
-void app_main(void)
-{
-    models = esp_srmodel_init("model"); // partition label defined in partitions.csv
-    ESP_ERROR_CHECK(esp_board_init(16000, 1, 16));
-    afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
-    afe_config_t afe_config = AFE_CONFIG_DEFAULT();
-    afe_config.wakenet_model_name = esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);;
-    afe_config.aec_init = false;
-    esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
-    xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void*)afe_data, 5, NULL, 1);
-    xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void*)afe_data, 5, NULL, 0);
+void audio_paly_back(void *arg) {
+  unsigned prio = uxTaskPriorityGet(NULL);
+  picotts_init(prio, on_samples, TTS_CORE);
+    char received_message[MAX_STRING_LENGTH];
+  while (true) {
+    if (xQueueReceive(xQueue, received_message, portMAX_DELAY) == pdTRUE) {
+      printf("Received message: %s\n", received_message);
+      picotts_add(received_message, sizeof(received_message));
+    }
+  }
+}
 
+void app_main(void) {
+  xQueue = xQueueCreate(QUEUE_LENGTH, MAX_STRING_LENGTH);
+  if (xQueue == NULL) {
+    printf("Failed to create queue\n");
+    return;
+  }
+  models =
+      esp_srmodel_init("model"); // partition label defined in partitions.csv
+  ESP_ERROR_CHECK(esp_board_init(16000, 1, 16));
+  esp_audio_set_play_vol(100);
+  afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
+  afe_config_t afe_config = AFE_CONFIG_DEFAULT();
+  afe_config.wakenet_model_name =
+      esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);
+  afe_config.aec_init = false;
+  esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
+  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
+                          NULL, 1);
+  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
+                          NULL, 0);
+  xTaskCreatePinnedToCore(&audio_paly_back, "play", 8 * 1024, NULL, 5, NULL, 1);
 }
