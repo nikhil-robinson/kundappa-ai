@@ -23,7 +23,7 @@
 #define I2S_CHANNEL_NUM 2
 
 #define QUEUE_LENGTH 5
-#define MAX_STRING_LENGTH 20
+#define MAX_STRING_LENGTH 60
 
 int detect_flag = 0;
 static esp_afe_sr_iface_t *afe_handle = NULL;
@@ -97,9 +97,9 @@ void detect_Task(void *arg) {
                mn_result->string, mn_result->prob[i]);
         if (mn_result->command_id[i] == 1) {
           printf("-----------Wake word detected-----------\n");
-          strcpy(message, "Hello, Nikhil!");
-          while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE)
-            ;
+          strcpy(message, "Hello There how can i help you!");
+          while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE);
+          vTaskDelay(pdMS_TO_TICKS(5000));
 
           detect_flag = 1;
         }
@@ -161,7 +161,7 @@ void detect_Task(void *arg) {
     multinet->destroy(model_data);
     model_data = NULL;
   }
-  picotts_shutdown();
+  
   printf("detect exit\n");
   vTaskDelete(NULL);
 }
@@ -176,6 +176,7 @@ void audio_paly_back(void *arg) {
       picotts_add(received_message, sizeof(received_message));
     }
   }
+  picotts_shutdown();
 }
 
 void app_main(void) {
