@@ -418,11 +418,6 @@ esp_err_t bsp_audio_play(const int16_t* data, int length, TickType_t ticks_to_wa
     return ret;
 }
 
-esp_err_t bsp_play_buffer(void *buffer, unsigned count)
-{
-    return esp_codec_dev_write(play_dev, buffer, count);
-}
-
 esp_err_t bsp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer_len)
 {
     esp_err_t ret = ESP_OK;
