@@ -32,11 +32,13 @@ QueueHandle_t xQueue = NULL;
 
 const char greeting[] = "This is a test";
 
-static void on_samples(int16_t *buf, unsigned count) {
+static void on_samples(int16_t *buf, unsigned count)
+{
   esp_audio_play(buf, count * 2, 0);
 }
 
-void feed_Task(void *arg) {
+void feed_Task(void *arg)
+{
   esp_afe_sr_data_t *afe_data = arg;
   int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
   int nch = afe_handle->get_channel_num(afe_data);
@@ -45,7 +47,8 @@ void feed_Task(void *arg) {
   int16_t *i2s_buff = malloc(audio_chunksize * sizeof(int16_t) * feed_channel);
   assert(i2s_buff);
 
-  while (true) {
+  while (true)
+  {
     esp_get_feed_data(false, i2s_buff,
                       audio_chunksize * sizeof(int16_t) * feed_channel);
 
@@ -53,15 +56,16 @@ void feed_Task(void *arg) {
   }
 }
 
-void detect_Task(void *arg) {
+void detect_Task(void *arg)
+{
   esp_afe_sr_data_t *afe_data = (esp_afe_sr_data_t *)arg;
   int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
   char *mn_name = esp_srmodel_filter(models, ESP_MN_PREFIX, ESP_MN_ENGLISH);
   printf("multinet:%s\n", mn_name);
   esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
   model_iface_data_t *model_data = multinet->create(mn_name, 6000);
-  esp_mn_commands_clear();             // Clear commands that already exist
-  esp_mn_commands_add(1, "Hi pebble"); // add a command
+  esp_mn_commands_clear();                     // Clear commands that already exist
+  esp_mn_commands_add(1, "Hi pebble");         // add a command
   esp_mn_commands_add(2, "Turn on the light"); // add a command
   esp_mn_commands_update();                    // update commands
   int mu_chunksize = multinet->get_samp_chunksize(model_data);
@@ -72,53 +76,95 @@ void detect_Task(void *arg) {
 
   printf("------------detect start------------\n");
 
-  while (true) {
-        afe_fetch_result_t* res = afe_handle->fetch(afe_data); 
-        if (!res || res->ret_value == ESP_FAIL) {
-            printf("fetch error!\n");
+  while (true)
+  {
+    afe_fetch_result_t *res = afe_handle->fetch(afe_data);
+    if (!res || res->ret_value == ESP_FAIL)
+    {
+      printf("fetch error!\n");
+      break;
+    }
+
+    esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
+
+    if (mn_state == ESP_MN_STATE_DETECTING)
+    {
+      continue;
+    }
+
+    if (mn_state == ESP_MN_STATE_DETECTED)
+    {
+      esp_mn_results_t *mn_result = multinet->get_results(model_data);
+      for (int i = 0; i < mn_result->num; i++)
+      {
+        printf("TOP %d, command_id: %d, phrase_id: %d, string: %s, prob: %f\n",
+               i + 1, mn_result->command_id[i], mn_result->phrase_id[i],
+               mn_result->string, mn_result->prob[i]);
+        if (mn_result->command_id[i] == 1)
+        {
+          strcpy(message, "Hello, Nikhil!");
+          while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE)
+            ;
+          detect_flag = 1;
+        }
+        if (detect_flag)
+        {
+          switch (mn_result->command_id[i])
+          {
+          case 2:
+          {
+            strcpy(message, "Hello, Nikhil!");
+            while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE)
+              ;
             break;
-        }
+          }
+          case 3:
+          {
+            strcpy(message, "Hello, Nikhil!");
+            while (xQueueSend(xQueue, message, portMAX_DELAY) != pdTRUE)
+              ;
+            break;
+          }
 
-        esp_mn_state_t mn_state = multinet->detect(model_data, res->data);
-
-        if (mn_state == ESP_MN_STATE_DETECTING) {
-            continue;
+          default:
+            break;
+          }
         }
+      }
 
-        if (mn_state == ESP_MN_STATE_DETECTED) {
-            esp_mn_results_t *mn_result = multinet->get_results(model_data);
-            for (int i = 0; i < mn_result->num; i++) {
-                printf("TOP %d, command_id: %d, phrase_id: %d, string: %s, prob: %f\n", 
-                i+1, mn_result->command_id[i], mn_result->phrase_id[i], mn_result->string, mn_result->prob[i]);
-            }
-            printf("-----------listening-----------\n");
-        }
-
-        if (mn_state == ESP_MN_STATE_TIMEOUT) {
-            esp_mn_results_t *mn_result = multinet->get_results(model_data);
-            printf("timeout, string:%s\n", mn_result->string);
-            afe_handle->enable_wakenet(afe_data);
-            afe_handle->disable_wakenet(afe_data);
-            multinet->clean(model_data);
-            detect_flag = 0;
-            printf("\n-----------awaits to be waken up-----------\n");
-            continue;
-        }
+      printf("-----------listening-----------\n");
     }
-    if (model_data) {
-        multinet->destroy(model_data);
-        model_data = NULL;
+
+    if (mn_state == ESP_MN_STATE_TIMEOUT)
+    {
+      esp_mn_results_t *mn_result = multinet->get_results(model_data);
+      printf("timeout, string:%s\n", mn_result->string);
+      afe_handle->enable_wakenet(afe_data);
+      afe_handle->disable_wakenet(afe_data);
+      multinet->clean(model_data);
+      detect_flag = 0;
+      printf("\n-----------awaits to be waken up-----------\n");
+      continue;
     }
-    printf("detect exit\n");
-    vTaskDelete(NULL);
+  }
+  if (model_data)
+  {
+    multinet->destroy(model_data);
+    model_data = NULL;
+  }
+  printf("detect exit\n");
+  vTaskDelete(NULL);
 }
 
-void audio_paly_back(void *arg) {
+void audio_paly_back(void *arg)
+{
   unsigned prio = uxTaskPriorityGet(NULL);
   picotts_init(prio, on_samples, TTS_CORE);
   char received_message[MAX_STRING_LENGTH];
-  while (true) {
-    if (xQueueReceive(xQueue, received_message, portMAX_DELAY) == pdTRUE) {
+  while (true)
+  {
+    if (xQueueReceive(xQueue, received_message, portMAX_DELAY) == pdTRUE)
+    {
       printf("Received message: %s\n", received_message);
       picotts_add(received_message, sizeof(received_message));
     }
@@ -126,9 +172,11 @@ void audio_paly_back(void *arg) {
   picotts_shutdown();
 }
 
-void app_main(void) {
+void app_main(void)
+{
   xQueue = xQueueCreate(QUEUE_LENGTH, MAX_STRING_LENGTH);
-  if (xQueue == NULL) {
+  if (xQueue == NULL)
+  {
     printf("Failed to create queue\n");
     return;
   }
@@ -146,5 +194,5 @@ void app_main(void) {
                           NULL, 1);
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
                           NULL, 0);
-  xTaskCreatePinnedToCore(&audio_paly_back, "play", 8 * 1024, NULL, 5, NULL, 1);
+  xTaskCreatePinnedToCore(&audio_paly_back, "play", 8 * 1024, NULL, 5, NULL, 0);
 }

@@ -2,4 +2,6 @@ nvs,        data,   nvs,        0x9000,   0x4000,
 phy_init,   data,   phy,              ,   0x1000,
 factory,    app,    factory,          ,   6M,
 storage,    data,   spiffs,           ,   2M,
-model,      data,   spiffs,           ,   4000K
+model,      data,   spiffs,           ,   4M
+picotts_ta, 0x40,   0x0,              ,   640K,
+picotts_sg, 0x40,   0x1,              ,   820K,
