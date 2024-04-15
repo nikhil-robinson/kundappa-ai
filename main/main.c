@@ -36,6 +36,17 @@ const char greeting[] = "This is a test";
 TaskHandle_t voice_handel = NULL;
 TaskHandle_t detect_handel = NULL;
 
+
+typedef struct {
+  char * resp;
+} voice_mapping_t;
+
+static const voice_mapping_t voice_lookup[] = {
+  {"Sorry please repeat that"},
+  {"Hello Boss"},
+  {"Turninng on"},
+};
+
 static void on_samples(int16_t *buf, unsigned count) {
   esp_audio_play(buf, count * 2, 0);
 }
@@ -97,27 +108,24 @@ void detect_Task(void *arg) {
                i + 1, mn_result->command_id[i], mn_result->phrase_id[i],
                mn_result->string, mn_result->prob[i]);
         if (detect_flag) {
-          switch (mn_result->command_id[i]) {
-          case 2: {
-            strcpy(message, "Hello, Nikhil!");
-            xQueueSend(xQueue, message, portMAX_DELAY);
-            break;
-          }
-          case 3: {
-            strcpy(message, "Hello, Nikhil!");
-            xQueueSend(xQueue, message, portMAX_DELAY);
-            break;
-          }
-          default: {
-            break;
-          }
-          }
-        }
-        if (mn_result->command_id[i] == 1) {
-          strcpy(message, "Hello, Nikhil!");
+          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
+          strcpy(message, voice->resp);
           xQueueSend(xQueue, message, portMAX_DELAY);
           detect_flag = false;
         }
+        else if (mn_result->command_id[i] == 1) {
+          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
+          strcpy(message, voice->resp);
+          xQueueSend(xQueue, message, portMAX_DELAY);
+          detect_flag = true;
+        }
+        else
+        {
+          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i +1]];
+          strcpy(message, voice->resp);
+          xQueueSend(xQueue, message, portMAX_DELAY);
+        }
+        
       }
 
       printf("-----------listening-----------\n");
@@ -129,7 +137,7 @@ void detect_Task(void *arg) {
       afe_handle->enable_wakenet(afe_data);
       afe_handle->disable_wakenet(afe_data);
       multinet->clean(model_data);
-      detect_flag = 0;
+      detect_flag = false;
       printf("\n-----------awaits to be waken up-----------\n");
       continue;
     }
