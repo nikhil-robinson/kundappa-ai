@@ -38,7 +38,7 @@ TaskHandle_t detect_handel = NULL;
 
 
 typedef struct {
-  char * resp;
+  char * msg;
 } voice_mapping_t;
 
 static const voice_mapping_t voice_lookup[] = {
