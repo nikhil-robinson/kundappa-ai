@@ -52,6 +52,15 @@ static void on_samples(int16_t *buf, unsigned count) {
 }
 
 static void on_tts_idel() { tts_running = false; }
+
+static void wait_for_tts()
+{
+    while (tts_running)
+    {
+     vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+
+}
 void feed_Task(void *arg) {
   esp_afe_sr_data_t *afe_data = arg;
   int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
@@ -62,6 +71,8 @@ void feed_Task(void *arg) {
   assert(i2s_buff);
 
   while (true) {
+
+    wait_for_tts();
     esp_get_feed_data(false, i2s_buff,
                       audio_chunksize * sizeof(int16_t) * feed_channel);
 
@@ -77,7 +88,7 @@ void detect_Task(void *arg) {
   esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
   model_iface_data_t *model_data = multinet->create(mn_name, 6000);
   esp_mn_commands_clear();             // Clear commands that already exist
-  esp_mn_commands_add(1, "Hi pebble"); // add a command
+  esp_mn_commands_add(1, "Pebble"); // add a command
   esp_mn_commands_add(2, "Turn on the light"); // add a command
   esp_mn_commands_update();                    // update commands
   int mu_chunksize = multinet->get_samp_chunksize(model_data);
@@ -89,6 +100,7 @@ void detect_Task(void *arg) {
   printf("------------detect start------------\n");
 
   while (true) {
+    wait_for_tts();
     afe_fetch_result_t *res = afe_handle->fetch(afe_data);
     if (!res || res->ret_value == ESP_FAIL) {
       printf("fetch error!\n");
@@ -109,20 +121,20 @@ void detect_Task(void *arg) {
                mn_result->string, mn_result->prob[i]);
         if (detect_flag) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-          strcpy(message, voice->resp);
+          strcpy(message, voice->msg);
           xQueueSend(xQueue, message, portMAX_DELAY);
           detect_flag = false;
         }
         else if (mn_result->command_id[i] == 1) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-          strcpy(message, voice->resp);
+          strcpy(message, voice->msg);
           xQueueSend(xQueue, message, portMAX_DELAY);
           detect_flag = true;
         }
         else
         {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i +1]];
-          strcpy(message, voice->resp);
+          strcpy(message, voice->msg);
           xQueueSend(xQueue, message, portMAX_DELAY);
         }
         
