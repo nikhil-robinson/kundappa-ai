@@ -61,6 +61,23 @@ static void wait_for_tts()
     }
 
 }
+
+
+static void say_this(char * received_message, size_t len )
+{
+  vTaskSuspend(voice_handel);
+  while (tts_running) {
+    vTaskDelay(1);
+  }
+  picotts_add(received_message, len);
+  tts_running = true;
+  while (tts_running) {
+    vTaskDelay(1);
+  }
+  vTaskResume(voice_handel);
+}
+
+
 void feed_Task(void *arg) {
   esp_afe_sr_data_t *afe_data = arg;
   int audio_chunksize = afe_handle->get_feed_chunksize(afe_data);
@@ -72,7 +89,6 @@ void feed_Task(void *arg) {
 
   while (true) {
 
-    wait_for_tts();
     esp_get_feed_data(false, i2s_buff,
                       audio_chunksize * sizeof(int16_t) * feed_channel);
 
@@ -95,6 +111,10 @@ void detect_Task(void *arg) {
   assert(mu_chunksize == afe_chunksize);
   multinet->print_active_speech_commands(model_data);
 
+
+  unsigned prio = uxTaskPriorityGet(NULL);
+  picotts_init(prio, on_samples, TTS_CORE);
+  picotts_set_idle_notify(on_tts_idel);
   char message[MAX_STRING_LENGTH];
 
   printf("------------detect start------------\n");
@@ -122,21 +142,16 @@ void detect_Task(void *arg) {
         if (detect_flag) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
           strcpy(message, voice->msg);
-          xQueueSend(xQueue, message, portMAX_DELAY);
+          say_this(message,sizeof(message));
           detect_flag = false;
         }
         else if (mn_result->command_id[i] == 1) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
           strcpy(message, voice->msg);
-          xQueueSend(xQueue, message, portMAX_DELAY);
+          say_this(message,sizeof(message));
           detect_flag = true;
         }
-        else
-        {
-          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i +1]];
-          strcpy(message, voice->msg);
-          xQueueSend(xQueue, message, portMAX_DELAY);
-        }
+
         
       }
 
@@ -162,28 +177,6 @@ void detect_Task(void *arg) {
   vTaskDelete(NULL);
 }
 
-void audio_paly_back(void *arg) {
-  unsigned prio = uxTaskPriorityGet(NULL);
-  picotts_init(prio, on_samples, TTS_CORE);
-  picotts_set_idle_notify(on_tts_idel);
-  char received_message[MAX_STRING_LENGTH];
-  while (true) {
-    if (xQueueReceive(xQueue, received_message, portMAX_DELAY) == pdTRUE) {
-      printf("Received message: %s\n", received_message);
-      vTaskSuspend(voice_handel);
-      while (tts_running) {
-        vTaskDelay(1);
-      }
-      picotts_add(received_message, sizeof(received_message));
-      tts_running = true;
-      while (tts_running) {
-        vTaskDelay(1);
-      }
-      vTaskResume(voice_handel);
-    }
-  }
-  picotts_shutdown();
-}
 
 void app_main(void) {
   xQueue = xQueueCreate(QUEUE_LENGTH, MAX_STRING_LENGTH);
@@ -205,5 +198,4 @@ void app_main(void) {
                           &detect_handel, 1);
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
                           &voice_handel, 1);
-  xTaskCreatePinnedToCore(&audio_paly_back, "play", 8 * 1024, NULL, 5, NULL, 0);
 }
