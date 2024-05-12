@@ -1,5 +1,6 @@
 ## IDF Component Manager Manifest File
 dependencies:
+  espressif/openai: "=*"
   espressif/esp-box-3: "*"
   espressif/esp-sr: "*"
   ## Required IDF version
