@@ -878,7 +878,7 @@ static void tok_interpretMarkup (picodata_ProcessingUnit this, tok_subobj_t * to
         case MIPlay:
             if (isStartTag && tok_strEqual(tok->markupParams[0].paramId, KWFile)) {
                 if (picoos_FileExists(this->common, (picoos_char*)tok->markupParams[0].paramVal)) {
-                    tok_getParamIntVal(tok->markupParams,KWF0Beg,& ival,& paramFound);
+                    tok_getParamIntVal(tok->markupParams,KWF0Beg, &ival,&paramFound);
                     tok_getParamIntVal(tok->markupParams,KWF0End,& ival2,& paramFound);
                     tok_getParamStrVal(tok->markupParams,KWAlphabet,valStr3,& paramFound);
                     tok_getParamPhonesStr(tok->markupParams,KWXFadeBeg,valStr3,valStr,VAL_STR_LEN,& paramFound);

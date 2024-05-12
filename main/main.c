@@ -19,7 +19,7 @@
 
 #define TTS_CORE 1
 
-#define TAG "KUNDAPPA"
+#define TAG "PEBBLE"
 #define I2S_CHANNEL_NUM 2
 
 #define QUEUE_LENGTH 5
@@ -204,6 +204,6 @@ void app_main(void) {
   xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
                           &detect_handel, 1);
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
-                          &voice_handel, 0);
+                          &voice_handel, 1);
   xTaskCreatePinnedToCore(&audio_paly_back, "play", 8 * 1024, NULL, 5, NULL, 0);
 }

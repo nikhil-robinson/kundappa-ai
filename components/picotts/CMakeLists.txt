@@ -46,7 +46,7 @@ idf_component_register(
 set_source_files_properties(
   ${PICOTTS_SRCS}
   PROPERTIES COMPILE_FLAGS
-  "-Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-unused-function"
+  "-Wno-implicit-fallthrough -Wno-unused-but-set-variable -Wno-unused-function -Wno-error=stringop-overflow"
 )
 
 # PicoTTS attempts to use exp() trickery which relies on a particular floating

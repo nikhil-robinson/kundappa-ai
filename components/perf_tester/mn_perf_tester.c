@@ -11,7 +11,7 @@
 #include "esp_board_init.h"
 #include "esp_mn_speech_commands.h"
 #include "esp_process_sdkconfig.h"
-
+#include <dirent.h>
 
 typedef struct {
     int rb_buffer_size;

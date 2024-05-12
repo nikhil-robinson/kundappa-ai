@@ -7,5 +7,5 @@ cmake_minimum_required(VERSION 3.16)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 add_compile_options(-fdiagnostics-color=always -Wno-ignored-qualifiers)
-project(kunadava-ai)
+project(pebble-ai)
 

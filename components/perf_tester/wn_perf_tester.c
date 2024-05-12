@@ -10,6 +10,7 @@
 #include "wn_perf_tester.h"
 #include "esp_board_init.h"
 #include "esp_process_sdkconfig.h"
+#include <dirent.h>
 
 
 typedef struct {
