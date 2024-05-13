@@ -177,6 +177,23 @@ void detect_Task(void *arg) {
   vTaskDelete(NULL);
 }
 
+void play_lottie()
+{
+    bsp_i2c_init();
+    bsp_display_start();
+    bsp_display_backlight_on();
+    bsp_display_lock(0);
+    lv_obj_t * lottie = lv_lottie_create(lv_screen_active());
+    lv_lottie_set_src_data(lottie, lv_example_lottie_approve, lv_example_lottie_approve_size);
+
+    static uint8_t buf[64 * 64 * 4];
+    lv_lottie_set_buffer(lottie, 64, 64, buf);
+
+    lv_obj_center(lottie);
+  
+    bsp_display_unlock();
+  
+}
 
 void app_main(void) {
   xQueue = xQueueCreate(QUEUE_LENGTH, MAX_STRING_LENGTH);
