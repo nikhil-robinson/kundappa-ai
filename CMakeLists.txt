@@ -9,3 +9,4 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 add_compile_options(-fdiagnostics-color=always -Wno-ignored-qualifiers)
 project(pebble-ai)
 
+spiffs_create_partition_image(storage files FLASH_IN_PROJECT)

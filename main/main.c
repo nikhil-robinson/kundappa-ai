@@ -17,6 +17,11 @@
 #include "picotts.h"
 #include <string.h>
 
+#include "lv_demos.h"
+#include "bsp/esp-bsp.h"
+
+
+
 #define TTS_CORE 1
 
 #define TAG "PEBBLE"
@@ -179,23 +184,26 @@ void detect_Task(void *arg) {
 
 void play_lottie()
 {
+    bsp_spiffs_mount();
     bsp_i2c_init();
     bsp_display_start();
     bsp_display_backlight_on();
+
+
     bsp_display_lock(0);
-    lv_obj_t * lottie = lv_lottie_create(lv_screen_active());
-    lv_lottie_set_src_data(lottie, lv_example_lottie_approve, lv_example_lottie_approve_size);
-
-    static uint8_t buf[64 * 64 * 4];
-    lv_lottie_set_buffer(lottie, 64, 64, buf);
-
-    lv_obj_center(lottie);
-  
+    lv_obj_t * lottie1 = lv_rlottie_create_from_file(lv_scr_act(), 200, 200, "/spiffs/test.json");
+    lv_obj_center(lottie1);
     bsp_display_unlock();
+
+    while (1)
+    {
+        vTaskDelay(portMAX_DELAY);
+    }
   
 }
 
 void app_main(void) {
+  play_lottie();
   xQueue = xQueueCreate(QUEUE_LENGTH, MAX_STRING_LENGTH);
   if (xQueue == NULL) {
     printf("Failed to create queue\n");
