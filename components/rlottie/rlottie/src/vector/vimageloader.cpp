@@ -71,7 +71,7 @@ struct VImageLoader::Impl {
 
     void moduleFree()
     {
-        if (dl_handle) dlclose(dl_handle);
+        // if (dl_handle) dlclose(dl_handle);
     }
     bool moduleLoad()
     {
