@@ -130,12 +130,13 @@ void detect_Task(void *arg) {
         if (detect_flag) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
           strcpy(message, voice->msg);
-          say_this(message, strlen(message));
+          say_this(message, sizeof(message));
           detect_flag = false;
         } else if (mn_result->command_id[i] == 1) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
+          ESP_LOGI(TAG,"MSEEGAE[%d] %s",strlen(voice->msg),voice->msg );
           strcpy(message, voice->msg);
-          say_this(message, strlen(message));
+          say_this(message, sizeof(message));
           detect_flag = true;
         }
       }
