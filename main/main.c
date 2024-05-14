@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "lv_examples.h"
 #define TAG "PEBBLE"
 
 #define TTS_CORE 1
@@ -183,9 +184,9 @@ static void app_sr_init() {
   afe_config.aec_init = false;
   esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
   xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
-                          &detect_handel, 0);
+                          &detect_handel, 1);
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
-                          &voice_handel, 0);
+                          &voice_handel, 1);
 }
 
 void app_main(void) {
@@ -195,4 +196,13 @@ void app_main(void) {
   bsp_display_backlight_on();
   bsp_display_brightness_set(100);
   app_sr_init();
+
+  bsp_display_lock(0);
+  LV_IMG_DECLARE(rabbit);
+  lv_obj_t * img;
+
+  img = lv_gif_create(lv_scr_act());
+  lv_gif_set_src(img, &rabbit);
+  lv_obj_align(img, LV_ALIGN_CENTER, 0, -20);
+  bsp_display_unlock();
 }
