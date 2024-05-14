@@ -27,11 +27,6 @@ static volatile bool detect_flag = false;
 static volatile bool tts_running = false;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 
-static const voice_mapping_t voice_lookup[] = {
-    {"Sorry please repeat that"},
-    {"Hello Boss"},
-    {"Turninng on"},
-};
 
 static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
@@ -40,6 +35,13 @@ static TaskHandle_t detect_handel = NULL;
 typedef struct {
   char *msg;
 } voice_mapping_t;
+
+static const voice_mapping_t voice_lookup[] = {
+    {"Sorry please repeat that"},
+    {"Hello Boss"},
+    {"Turninng on"},
+};
+
 
 static void on_samples(int16_t *buf, unsigned count) {
   esp_audio_play(buf, count * 2, 0);
@@ -184,6 +186,10 @@ static void app_sr_init() {
       esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);
   afe_config.aec_init = false;
   esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
+  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
+                          &detect_handel, 1);
+  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
+                          &voice_handel, 1);
 }
 
 void app_main(void) {
@@ -193,10 +199,7 @@ void app_main(void) {
   bsp_display_backlight_on();
   bsp_display_brightness_set(100);
 
-  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
-                          &detect_handel, 1);
-  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
-                          &voice_handel, 1);
+  
   xTaskCreatePinnedToCore(play_lottie, "lottie_task", 60 * 1024, NULL, 20, NULL,
                           0);
 }

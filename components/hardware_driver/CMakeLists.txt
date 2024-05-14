@@ -3,12 +3,11 @@ idf_component_register(
         ./
     INCLUDE_DIRS
         "include"
-        "boards/include"
     REQUIRES
         driver
         fatfs
         spiffs
-        esp-bsp
+        esp-box-3
         )
 
 component_compile_options(-w)
