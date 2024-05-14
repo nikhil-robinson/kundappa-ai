@@ -14,7 +14,7 @@
  *      See the License for the specific language governing permissions and
  *      limitations under the License.
  */
-
+#include "bsp/esp-bsp.h"
 #include "string.h"
 #include "bsp_board.h"
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
@@ -64,19 +64,8 @@ static esp_codec_dev_handle_t play_dev = NULL;
 
 esp_err_t audio_i2c_init(i2c_port_t i2c_num, uint32_t clk_speed)
 {
-    i2c_config_t i2c_cfg = {
-        .mode = I2C_MODE_MASTER,
-        .scl_io_num = GPIO_I2C_SCL,
-        .sda_io_num = GPIO_I2C_SDA,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = clk_speed,
-    };
-    esp_err_t ret = i2c_param_config(i2c_num, &i2c_cfg);
-    if (ret != ESP_OK) {
-        return ESP_FAIL;
-    }
-    return i2c_driver_install(i2c_num, i2c_cfg.mode, 0, 0, 0);
+    ESP_LOGI(TAG,"I2c_FROM AUDIO");
+    return bsp_i2c_init();
 }
 
 esp_err_t bsp_codec_adc_init(int sample_rate)
@@ -93,7 +82,9 @@ esp_err_t bsp_codec_adc_init(int sample_rate)
     };
     record_data_if = audio_codec_new_i2s_data(&i2s_cfg);
 
-    audio_codec_i2c_cfg_t i2c_cfg = {.addr = ES7210_CODEC_DEFAULT_ADDR};
+    audio_codec_i2c_cfg_t i2c_cfg = {
+        .port = BSP_I2C_NUM,
+        .addr = ES7210_CODEC_DEFAULT_ADDR};
     record_ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
     // New input codec interface
     es7210_codec_cfg_t es7210_cfg = {
@@ -138,7 +129,9 @@ esp_err_t bsp_codec_dac_init(int sample_rate, int channel_format, int bits_per_c
     };
     play_data_if = audio_codec_new_i2s_data(&i2s_cfg);
 
-    audio_codec_i2c_cfg_t i2c_cfg = {.addr = ES8311_CODEC_DEFAULT_ADDR};
+    audio_codec_i2c_cfg_t i2c_cfg = {
+        .addr = ES8311_CODEC_DEFAULT_ADDR,
+        .port = BSP_I2C_NUM,};
     play_ctrl_if = audio_codec_new_i2c_ctrl(&i2c_cfg);
     play_gpio_if = audio_codec_new_gpio();
     // New output codec interface

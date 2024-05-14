@@ -130,12 +130,12 @@ void detect_Task(void *arg) {
         if (detect_flag) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
           strcpy(message, voice->msg);
-          say_this(message, sizeof(message));
+          say_this(message, strlen(message));
           detect_flag = false;
         } else if (mn_result->command_id[i] == 1) {
           voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
           strcpy(message, voice->msg);
-          say_this(message, sizeof(message));
+          say_this(message, strlen(message));
           detect_flag = true;
         }
       }
@@ -190,6 +190,8 @@ static void app_sr_init() {
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
                           &voice_handel, 1);
 }
+
+
 
 void app_main(void) {
   bsp_spiffs_mount();
