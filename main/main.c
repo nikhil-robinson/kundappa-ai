@@ -176,8 +176,7 @@ void play_lottie() {
 }
 
 static void app_sr_init() {
-  models =
-      esp_srmodel_init("model"); // partition label defined in partitions.csv
+  models = esp_srmodel_init("model"); // partition label defined in partitions.csv
   ESP_ERROR_CHECK(esp_board_init(16000, 1, 16));
   esp_audio_set_play_vol(100);
   afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
