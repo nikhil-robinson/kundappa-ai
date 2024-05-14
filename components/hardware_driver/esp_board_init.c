@@ -67,7 +67,7 @@ esp_err_t esp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer
     // return esp_codec_dev_read(mic_codec_dev, buffer, buffer_len);
     esp_err_t ret = ESP_OK;
     size_t bytes_read;
-    int audio_chunksize = buffer_len / (sizeof(int16_t) * ADC_I2S_CHANNEL);
+    int audio_chunksize = buffer_len / (sizeof(int16_t) * 4);
 
     ret = esp_codec_dev_read(mic_codec_dev, (void *)buffer, buffer_len);
     if (!is_get_raw_channel) {
@@ -85,7 +85,7 @@ esp_err_t esp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer
 
 int esp_get_feed_channel(void)
 {
-    return bsp_get_feed_channel();
+    return 4;
 }
 
 esp_err_t esp_audio_play(const int16_t* data, int length, TickType_t ticks_to_wait)

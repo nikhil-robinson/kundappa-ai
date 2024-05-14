@@ -198,8 +198,9 @@ void app_main(void) {
   bsp_display_start();
   bsp_display_backlight_on();
   bsp_display_brightness_set(100);
+  app_sr_init();
 
   
-  xTaskCreatePinnedToCore(play_lottie, "lottie_task", 60 * 1024, NULL, 20, NULL,
-                          0);
+  // xTaskCreatePinnedToCore(play_lottie, "lottie_task", 60 * 1024, NULL, 20, NULL,
+  //                         0);
 }
