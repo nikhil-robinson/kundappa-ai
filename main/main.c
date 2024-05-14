@@ -27,7 +27,6 @@ static volatile bool detect_flag = false;
 static volatile bool tts_running = false;
 static esp_afe_sr_iface_t *afe_handle = NULL;
 
-
 static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
@@ -41,7 +40,6 @@ static const voice_mapping_t voice_lookup[] = {
     {"Hello Boss"},
     {"Turninng on"},
 };
-
 
 static void on_samples(int16_t *buf, unsigned count) {
   esp_audio_play(buf, count * 2, 0);
@@ -103,7 +101,7 @@ void detect_Task(void *arg) {
   unsigned prio = uxTaskPriorityGet(NULL);
   picotts_init(prio, on_samples, TTS_CORE);
   picotts_set_idle_notify(on_tts_idel);
-  char message[MAX_STRING_LENGTH];
+  char message[MAX_STRING_LENGTH] ="";
 
   printf("------------detect start------------\n");
 
@@ -127,18 +125,16 @@ void detect_Task(void *arg) {
         printf("TOP %d, command_id: %d, phrase_id: %d, string: %s, prob: %f\n",
                i + 1, mn_result->command_id[i], mn_result->phrase_id[i],
                mn_result->string, mn_result->prob[i]);
-        if (detect_flag) {
-          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-          strcpy(message, voice->msg);
-          say_this(message, sizeof(message));
-          detect_flag = false;
-        } else if (mn_result->command_id[i] == 1) {
-          voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-          ESP_LOGI(TAG,"MSEEGAE[%d] %s",strlen(voice->msg),voice->msg );
-          strcpy(message, voice->msg);
-          say_this(message, sizeof(message));
-          detect_flag = true;
+
+        if (mn_result->command_id[i] != 1 && !detect_flag) {
+          continue;
         }
+        detect_flag = true;
+        voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
+        strcpy(message, voice->msg);
+        message[strlen(voice->msg)] ='\0';
+        say_this(message, sizeof(message));
+
       }
 
       printf("-----------listening-----------\n");
@@ -166,8 +162,7 @@ void detect_Task(void *arg) {
 void play_lottie() {
 
   bsp_display_lock(0);
-  lv_obj_t *lottie1 =
-      lv_rlottie_create_from_file(lv_scr_act(), 200, 200, "/spiffs/test.json");
+  lv_obj_t *lottie1 =lv_rlottie_create_from_file(lv_scr_act(), 200, 200, "/spiffs/test.json");
   lv_obj_center(lottie1);
   bsp_display_unlock();
 
@@ -177,7 +172,8 @@ void play_lottie() {
 }
 
 static void app_sr_init() {
-  models = esp_srmodel_init("model"); // partition label defined in partitions.csv
+  models =
+      esp_srmodel_init("model"); // partition label defined in partitions.csv
   ESP_ERROR_CHECK(esp_board_init(16000, 1, 16));
   esp_audio_set_play_vol(100);
   afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
@@ -187,12 +183,10 @@ static void app_sr_init() {
   afe_config.aec_init = false;
   esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
   xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
-                          &detect_handel, 1);
+                          &detect_handel, 0);
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
-                          &voice_handel, 1);
+                          &voice_handel, 0);
 }
-
-
 
 void app_main(void) {
   bsp_spiffs_mount();
@@ -201,8 +195,4 @@ void app_main(void) {
   bsp_display_backlight_on();
   bsp_display_brightness_set(100);
   app_sr_init();
-
-  
-  // xTaskCreatePinnedToCore(play_lottie, "lottie_task", 60 * 1024, NULL, 20, NULL,
-  //                         0);
 }
