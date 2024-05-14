@@ -64,7 +64,22 @@ esp_err_t esp_sdcard_deinit(char *mount_point)
 esp_err_t esp_get_feed_data(bool is_get_raw_channel, int16_t *buffer, int buffer_len)
 {
     // return bsp_get_feed_data(is_get_raw_channel, buffer, buffer_len);
-    return esp_codec_dev_read(mic_codec_dev, buffer, buffer_len);
+    // return esp_codec_dev_read(mic_codec_dev, buffer, buffer_len);
+    esp_err_t ret = ESP_OK;
+    size_t bytes_read;
+    int audio_chunksize = buffer_len / (sizeof(int16_t) * ADC_I2S_CHANNEL);
+
+    ret = esp_codec_dev_read(mic_codec_dev, (void *)buffer, buffer_len);
+    if (!is_get_raw_channel) {
+        for (int i = 0; i < audio_chunksize; i++) {
+            int16_t ref = buffer[4 * i + 0];
+            buffer[3 * i + 0] = buffer[4 * i + 1];
+            buffer[3 * i + 1] = buffer[4 * i + 3];
+            buffer[3 * i + 2] = ref;
+        }
+    }
+
+    return ret;
 
 }
 
