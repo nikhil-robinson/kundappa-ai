@@ -1,4 +1,5 @@
 #include "bsp/esp-bsp.h"
+#include "device.h"
 #include "esp_afe_sr_iface.h"
 #include "esp_afe_sr_models.h"
 #include "esp_board_init.h"
@@ -12,13 +13,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lv_demos.h"
+#include "lv_examples.h"
 #include "model_path.h"
 #include "picotts.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "lv_examples.h"
-#include "device.h"
+#include <time.h>
+
 #define TAG "PEBBLE"
 
 #define TTS_CORE 1
@@ -32,45 +34,49 @@ static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
 
-
 typedef struct {
-    char *token;
-    char *(*fun)(int); // Function pointer member
+  char *token;
+  char *(*fun)(int); // Function pointer member
 } voice_mapping_t;
 
+char *do_action(int id) {
+  char * res = malloc(MAX_STRING_LENGTH);
+  switch (id) {
+  case 0:
+    return "Please repeat That";
+    break;
+  case 1:
+    return "Hello Boss";
+    break;
+  case 2:
+    return "Turning on";
+    break;
+  case 3: {
 
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    int day = timeinfo.tm_mday;
+    int month = timeinfo.tm_mon + 1; // Months are 0-based
+    int year = timeinfo.tm_year + 1900; // Years since 1900
+    printf("Today's date: %02d %02d %d\n", day, month, year);
+    sprintf(res,"Today's date: %02d %02d %d\n", day, month, year);
+    return res;
+    break;
+  }
+  }
 
-char * do_action(int id) {
-    switch (id)
-    {
-    case 0:
-      return "Please repeat That";
-      break;
-    case 1:
-      return "Hello Boss";
-      break;
-    case 2:
-      return "Turning on";
-      break;
-    case 3:
-      return "todays date is";
-      break;
-    
-    default:
-      break;
-    }
-    printf("Getting today's date\n");
-    return "tets";
+  return "repeat that";
 }
 
 #define MAX_COMMANDS 4
 
 static const voice_mapping_t voice_lookup[MAX_COMMANDS] = {
-    {"",  do_action},     // default response
-    {"Hi pebble", do_action},
+    {"", do_action},          // default response
+    {"Hi pebble", do_action}, // wake word
     {"Turn on the light", do_action},
-    {"What is today's date", do_action}
-};
+    {"What day is it", do_action}};
 
 static void on_samples(int16_t *buf, unsigned count) {
   esp_audio_play(buf, count * 2, 0);
@@ -122,19 +128,19 @@ void detect_Task(void *arg) {
   esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
   model_iface_data_t *model_data = multinet->create(mn_name, 6000);
 
-
-  esp_mn_commands_clear();          // Clear commands that already exist
-  for (size_t i = 1; i < MAX_COMMANDS; i++)
-  {
+  esp_mn_commands_clear(); // Clear commands that already exist
+  for (size_t i = 1; i < MAX_COMMANDS; i++) {
     voice_mapping_t *voice = &voice_lookup[i];
     esp_mn_commands_add(i, voice->token);
-
   }
   
   
+  
+
+  
   // esp_mn_commands_add(1, "Pebble"); // add a command
   // esp_mn_commands_add(2, "Turn on the light"); // add a command
-  esp_mn_commands_update();                    // update commands
+  esp_mn_commands_update(); // update commands
   int mu_chunksize = multinet->get_samp_chunksize(model_data);
   assert(mu_chunksize == afe_chunksize);
   multinet->print_active_speech_commands(model_data);
@@ -142,7 +148,7 @@ void detect_Task(void *arg) {
   unsigned prio = uxTaskPriorityGet(NULL);
   picotts_init(prio, on_samples, TTS_CORE);
   picotts_set_idle_notify(on_tts_idel);
-  char message[MAX_STRING_LENGTH] ="";
+  char message[MAX_STRING_LENGTH] = "";
 
   printf("------------detect start------------\n");
 
@@ -172,10 +178,8 @@ void detect_Task(void *arg) {
         }
         detect_flag = true;
         voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-        
         strcpy(message, voice->fun(mn_result->command_id[i]));
         say_this(message, sizeof(message));
-
       }
 
       printf("-----------listening-----------\n");
@@ -199,7 +203,6 @@ void detect_Task(void *arg) {
   printf("detect exit\n");
   vTaskDelete(NULL);
 }
-
 
 static void app_sr_init() {
   models =
@@ -229,7 +232,7 @@ void app_main(void) {
 
   bsp_display_lock(0);
   LV_IMG_DECLARE(rabbit);
-  lv_obj_t * img;
+  lv_obj_t *img;
 
   img = lv_gif_create(lv_scr_act());
   lv_gif_set_src(img, &rabbit);
