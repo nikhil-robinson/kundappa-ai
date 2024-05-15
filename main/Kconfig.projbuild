@@ -1,0 +1,143 @@
+menu "Wifi Configuration"
+
+    config ESP_WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+        help
+            SSID (network name) for the example to connect to.
+
+    config ESP_WIFI_PASSWORD
+        string "WiFi Password"
+        default "mypassword"
+        help
+            WiFi password (WPA or WPA2) for the example to use.
+
+    choice ESP_WIFI_SAE_MODE
+        prompt "WPA3 SAE mode selection"
+        default ESP_WPA3_SAE_PWE_BOTH
+        help
+            Select mode for SAE as Hunt and Peck, H2E or both.
+        config ESP_WPA3_SAE_PWE_HUNT_AND_PECK
+            bool "HUNT AND PECK"
+        config ESP_WPA3_SAE_PWE_HASH_TO_ELEMENT
+            bool "H2E"
+        config ESP_WPA3_SAE_PWE_BOTH
+            bool "BOTH"
+    endchoice
+
+    config ESP_WIFI_PW_ID
+        string "PASSWORD IDENTIFIER"
+        depends on  ESP_WPA3_SAE_PWE_HASH_TO_ELEMENT|| ESP_WPA3_SAE_PWE_BOTH
+        default ""
+        help
+            password identifier for SAE H2E
+
+    config ESP_MAXIMUM_RETRY
+        int "Maximum retry"
+        default 5
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really inexistent.
+
+    choice ESP_WIFI_SCAN_AUTH_MODE_THRESHOLD
+        prompt "WiFi Scan auth mode threshold"
+        default ESP_WIFI_AUTH_WPA2_PSK
+        help
+            The weakest authmode to accept in the scan mode.
+            This value defaults to ESP_WIFI_AUTH_WPA2_PSK incase password is present and ESP_WIFI_AUTH_OPEN is used.
+            Please select ESP_WIFI_AUTH_WEP/ESP_WIFI_AUTH_WPA_PSK incase AP is operating in WEP/WPA mode.
+
+        config ESP_WIFI_AUTH_OPEN
+            bool "OPEN"
+        config ESP_WIFI_AUTH_WEP
+            bool "WEP"
+        config ESP_WIFI_AUTH_WPA_PSK
+            bool "WPA PSK"
+        config ESP_WIFI_AUTH_WPA2_PSK
+            bool "WPA2 PSK"
+        config ESP_WIFI_AUTH_WPA_WPA2_PSK
+            bool "WPA/WPA2 PSK"
+        config ESP_WIFI_AUTH_WPA3_PSK
+            bool "WPA3 PSK"
+        config ESP_WIFI_AUTH_WPA2_WPA3_PSK
+            bool "WPA2/WPA3 PSK"
+        config ESP_WIFI_AUTH_WAPI_PSK
+            bool "WAPI PSK"
+    endchoice
+
+endmenu
+
+
+menu "Device Configuration"
+
+    config DEVICE_ID
+        string "Device ID"
+        default "1"
+        help
+            Set device ID, Set it to 1 for auto generating ID from mac.
+    
+    config SNTP_TIME_SERVER
+        string "SNTP server name"
+        default "pool.ntp.org"
+        help
+            Hostname of the main SNTP server.
+    config CONTROL_BUTTON_GPIO
+        int "GPIO NUM FOR Control switch"
+        range 0 50
+        default 0
+endmenu
+
+menu "IoT Button Config"
+    
+    config BUTTON_PERIOD_TIME_MS
+        int "BUTTON PERIOD TIME (MS)"
+        range 2 20
+        default 5
+        help
+            "Button scan interval"
+
+    config BUTTON_DEBOUNCE_TICKS
+        int "BUTTON DEBOUNCE TICKS"
+        range 1 8
+        default 2
+        help
+            "One CONFIG_BUTTON_DEBOUNCE_TICKS equal to CONFIG_BUTTON_PERIOD_TIME_MS"
+
+    config BUTTON_SHORT_PRESS_TIME_MS
+        int "BUTTON SHORT PRESS TIME (MS)"
+        range 50 800
+        default 180
+
+    config BUTTON_LONG_PRESS_TIME_MS
+        int "BUTTON LONG PRESS TIME (MS)"
+        range 500 5000
+        default 1500
+
+    config BUTTON_SERIAL_TIME_MS
+        int "BUTTON SERIAL TIME (MS)"
+        range 2 1000
+        default 20
+        help
+            "Serial trigger interval"
+
+    config ADC_BUTTON_MAX_CHANNEL
+        int "ADC BUTTON MAX CHANNEL"
+        range 1 5
+        default 3
+        help
+            "Maximum number of channels for ADC buttons"
+
+    config ADC_BUTTON_MAX_BUTTON_PER_CHANNEL
+        int "ADC BUTTON MAX BUTTON PER CHANNEL"
+        range 1 10
+        default 8
+        help
+            "Maximum number of buttons per channel"
+
+    config ADC_BUTTON_SAMPLE_TIMES
+        int "ADC BUTTON SAMPLE TIMES"
+        range 1 4
+        default 1
+        help
+            "Number of samples per scan"
+
+endmenu

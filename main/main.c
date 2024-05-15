@@ -17,8 +17,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #include "lv_examples.h"
+#include "device.h"
 #define TAG "PEBBLE"
 
 #define TTS_CORE 1
@@ -33,13 +33,14 @@ static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
 
 typedef struct {
+  char *token;
   char *msg;
 } voice_mapping_t;
 
 static const voice_mapping_t voice_lookup[] = {
-    {"Sorry please repeat that"},
-    {"Hello Boss"},
-    {"Turninng on"},
+    {"","Sorry please repeat that"},
+    {"Hi pebble","Hello boss"},
+    {"Turn on the light","Turninng on"},
 };
 
 static void on_samples(int16_t *buf, unsigned count) {
@@ -160,17 +161,6 @@ void detect_Task(void *arg) {
   vTaskDelete(NULL);
 }
 
-void play_lottie() {
-
-  bsp_display_lock(0);
-  lv_obj_t *lottie1 =lv_rlottie_create_from_file(lv_scr_act(), 200, 200, "/spiffs/test.json");
-  lv_obj_center(lottie1);
-  bsp_display_unlock();
-
-  while (1) {
-    vTaskDelay(portMAX_DELAY);
-  }
-}
 
 static void app_sr_init() {
   models =
@@ -190,11 +180,12 @@ static void app_sr_init() {
 }
 
 void app_main(void) {
+  device_init();
   bsp_spiffs_mount();
   bsp_i2c_init();
   bsp_display_start();
   bsp_display_backlight_on();
-  bsp_display_brightness_set(100);
+  bsp_display_brightness_set(10);
   app_sr_init();
 
   bsp_display_lock(0);

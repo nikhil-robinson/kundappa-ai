@@ -1,4 +1,4 @@
-idf_component_register(SRCS "rabbit.c" "main.c"
+idf_component_register(SRCS "device.c" "rabbit.c" "main.c"
                     INCLUDE_DIRS ".")
 
                     
