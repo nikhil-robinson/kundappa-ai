@@ -178,6 +178,7 @@ void detect_Task(void *arg) {
         }
         detect_flag = true;
         voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
+        bzero(message,sizeof(message));
         strcpy(message, voice->fun(mn_result->command_id[i]));
         say_this(message, sizeof(message));
       }
