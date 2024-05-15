@@ -32,15 +32,44 @@ static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
 
+
 typedef struct {
-  char *token;
-  char *msg;
+    char *token;
+    char *(*fun)(int); // Function pointer member
 } voice_mapping_t;
 
-static const voice_mapping_t voice_lookup[] = {
-    {"","Sorry please repeat that"},
-    {"Hi pebble","Hello boss"},
-    {"Turn on the light","Turninng on"},
+
+
+char * do_action(int id) {
+    switch (id)
+    {
+    case 0:
+      return "Please repeat That";
+      break;
+    case 1:
+      return "Hello Boss";
+      break;
+    case 2:
+      return "Turning on";
+      break;
+    case 3:
+      return "todays date is";
+      break;
+    
+    default:
+      break;
+    }
+    printf("Getting today's date\n");
+    return "tets";
+}
+
+#define MAX_COMMANDS 4
+
+static const voice_mapping_t voice_lookup[MAX_COMMANDS] = {
+    {"",  do_action},     // default response
+    {"Hi pebble", do_action},
+    {"Turn on the light", do_action},
+    {"What is today's date", do_action}
 };
 
 static void on_samples(int16_t *buf, unsigned count) {
@@ -92,9 +121,19 @@ void detect_Task(void *arg) {
   printf("multinet:%s\n", mn_name);
   esp_mn_iface_t *multinet = esp_mn_handle_from_name(mn_name);
   model_iface_data_t *model_data = multinet->create(mn_name, 6000);
+
+
   esp_mn_commands_clear();          // Clear commands that already exist
-  esp_mn_commands_add(1, "Pebble"); // add a command
-  esp_mn_commands_add(2, "Turn on the light"); // add a command
+  for (size_t i = 1; i < MAX_COMMANDS; i++)
+  {
+    voice_mapping_t *voice = &voice_lookup[i];
+    esp_mn_commands_add(i, voice->token);
+
+  }
+  
+  
+  // esp_mn_commands_add(1, "Pebble"); // add a command
+  // esp_mn_commands_add(2, "Turn on the light"); // add a command
   esp_mn_commands_update();                    // update commands
   int mu_chunksize = multinet->get_samp_chunksize(model_data);
   assert(mu_chunksize == afe_chunksize);
@@ -133,8 +172,8 @@ void detect_Task(void *arg) {
         }
         detect_flag = true;
         voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-        strcpy(message, voice->msg);
-        message[strlen(voice->msg)] ='\0';
+        
+        strcpy(message, voice->fun(mn_result->command_id[i]));
         say_this(message, sizeof(message));
 
       }
