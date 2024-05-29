@@ -286,6 +286,17 @@ void time_update_task(void *pvParameters) {
   }
 }
 
+
+static void ta_event_cb(lv_event_t * e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t * kb = lv_event_get_target(e);
+    lv_obj_t * ta = lv_event_get_user_data(e);
+    if(code == LV_EVENT_READY) {
+        printf("Ready, current text: %s\n", lv_textarea_get_text(ta));
+    }
+}
+
 void display_init() {
   bsp_display_lock(0);
   LV_IMG_DECLARE(rabbit);
@@ -315,8 +326,8 @@ void display_init() {
   lv_obj_align(ta, LV_ALIGN_TOP_MID, 0, 10);
   lv_obj_set_size(ta, lv_pct(90), 80);
   lv_obj_add_state(ta, LV_STATE_FOCUSED);
-
   lv_keyboard_set_textarea(kb, ta);
+  lv_obj_add_event_cb(kb, ta_event_cb, LV_EVENT_ALL, ta);
   bsp_display_unlock();
 
   xTaskCreate(&time_update_task, "timer task", 2 * 1024, NULL, 3, NULL);
