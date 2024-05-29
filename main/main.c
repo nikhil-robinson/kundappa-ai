@@ -34,6 +34,70 @@ static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
 
+/*Create an AZERTY keyboard map*/
+static const char *kb_map[] = {"Q",
+                               "W",
+                               "E",
+                               "R",
+                               "T",
+                               "Y",
+                               "U",
+                               "I",
+                               "O",
+                               "P",
+                               LV_SYMBOL_BACKSPACE,
+                               "\n",
+                               "A",
+                               "S",
+                               "D",
+                               "F",
+                               "G",
+                               "H",
+                               "J",
+                               "K",
+                               "L",
+                               LV_SYMBOL_NEW_LINE,
+                               "\n",
+                               "Z",
+                               "X",
+                               "C",
+                               "V",
+                               "B",
+                               "N",
+                               ",",
+                               ".",
+                               ":",
+                               "!",
+                               "?",
+                               "\n",
+                               LV_SYMBOL_CLOSE,
+                               " ",
+                               " ",
+                               " ",
+                               LV_SYMBOL_OK,
+                               NULL};
+
+/*Set the relative width of the buttons and other controls*/
+static const lv_btnmatrix_ctrl_t kb_ctrl[] = {4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              6, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              6, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              4, 4,
+                                              2, LV_BTNMATRIX_CTRL_HIDDEN | 2,
+                                              6, LV_BTNMATRIX_CTRL_HIDDEN | 2,
+                                              2};
+
 typedef struct {
   char *token;
   char *(*fun)(int); // Function pointer member
@@ -52,7 +116,7 @@ char *do_action(int id) {
     return "Turning on";
     break;
   case 3: {
-    return get_time(MAX_STRING_LENGTH -1);
+    return get_time(MAX_STRING_LENGTH - 1);
     break;
   }
   }
@@ -161,7 +225,7 @@ void detect_Task(void *arg) {
         }
         detect_flag = true;
         voice_mapping_t *voice = &voice_lookup[mn_result->command_id[i]];
-        bzero(message,sizeof(message));
+        bzero(message, sizeof(message));
         strcpy(message, voice->fun(mn_result->command_id[i]));
         say_this(message, sizeof(message));
       }
@@ -199,18 +263,17 @@ static void app_sr_init() {
       esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);
   afe_config.aec_init = false;
   esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
-  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,&detect_handel, 0);
-  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,&voice_handel, 1);
+  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
+                          &detect_handel, 0);
+  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
+                          &voice_handel, 1);
 }
 
+lv_obj_t *time_label;
 
-lv_obj_t * time_label;
-
-void time_update_task(void * pvParameters)
-{
-  while (true)
-  {
-    char * tim = "99:99 AM";
+void time_update_task(void *pvParameters) {
+  while (true) {
+    char *tim = "99:99 AM";
     time_t now;
     struct tm timeinfo;
     time(&now);
@@ -221,42 +284,43 @@ void time_update_task(void * pvParameters)
     bsp_display_unlock();
     vTaskDelay(pdMS_TO_TICKS(1000));
   }
-  
 }
 
-void display_init()
-{
+void display_init() {
   bsp_display_lock(0);
   LV_IMG_DECLARE(rabbit);
-  lv_obj_t * window = lv_tileview_create(lv_scr_act());
-  lv_obj_t * window1 = lv_tileview_add_tile(window, 0, 0, LV_DIR_RIGHT);
+  lv_obj_t *window = lv_tileview_create(lv_scr_act());
+  lv_obj_t *window1 = lv_tileview_add_tile(window, 0, 0, LV_DIR_RIGHT);
   lv_obj_t *rabbit_gif = lv_gif_create(window1);
   lv_gif_set_src(rabbit_gif, &rabbit);
   lv_obj_align(rabbit_gif, LV_ALIGN_CENTER, 0, -20);
   time_label = lv_label_create(window1);
   lv_label_set_text(time_label, "99:99");
   lv_obj_set_style_text_font(time_label, &lv_font_montserrat_44, 0);
-  //lv_obj_set_width(time_label, );  /*Set smaller width to make the lines wrap*/
+  // lv_obj_set_width(time_label, );  /*Set smaller width to make the lines
+  // wrap*/
   lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(time_label, LV_ALIGN_CENTER, 0, -40);
 
-  lv_obj_t * window2 = lv_tileview_add_tile(window, 1, 0, LV_DIR_LEFT);
-  lv_obj_t * label = lv_label_create(window2);
-  lv_label_set_text(label, "can you see me");
-  lv_obj_center(label);
+  lv_obj_t *window2 = lv_tileview_add_tile(window, 1, 0, LV_DIR_LEFT);
+
+  lv_obj_t *kb = lv_keyboard_create(window2);
+
+  lv_keyboard_set_map(kb, LV_KEYBOARD_MODE_USER_1, kb_map, kb_ctrl);
+  lv_keyboard_set_mode(kb, LV_KEYBOARD_MODE_USER_1);
+
+  /*Create a text area. The keyboard will write here*/
+  lv_obj_t *ta;
+  ta = lv_textarea_create(window2);
+  lv_obj_align(ta, LV_ALIGN_TOP_MID, 0, 10);
+  lv_obj_set_size(ta, lv_pct(90), 80);
+  lv_obj_add_state(ta, LV_STATE_FOCUSED);
+
+  lv_keyboard_set_textarea(kb, ta);
   bsp_display_unlock();
 
-  xTaskCreate(&time_update_task,"timer task",2 *1024,NULL,3,NULL);
-
-
-
+  xTaskCreate(&time_update_task, "timer task", 2 * 1024, NULL, 3, NULL);
 }
-
-
-
-
-
-
 
 void app_main(void) {
   device_init();
@@ -267,6 +331,4 @@ void app_main(void) {
   bsp_display_brightness_set(10);
   app_sr_init();
   display_init();
-
-
 }
