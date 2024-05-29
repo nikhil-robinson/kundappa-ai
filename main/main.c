@@ -203,27 +203,52 @@ static void app_sr_init() {
   xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,&voice_handel, 1);
 }
 
+
+lv_obj_t * time_label;
+
+void time_update_task(void * pvParameters)
+{
+  while (true)
+  {
+    char * tim = "99:99 AM";
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    strftime(tim, 9, "%I:%M %p", &timeinfo);
+    bsp_display_lock(0);
+    lv_label_set_text(time_label, tim);
+    bsp_display_unlock();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+  }
+  
+}
+
 void display_init()
 {
   bsp_display_lock(0);
   LV_IMG_DECLARE(rabbit);
   lv_obj_t * window = lv_tileview_create(lv_scr_act());
-  lv_obj_t * window1 = lv_tileview_add_tile(window, 0, 0, LV_DIR_BOTTOM);
+  lv_obj_t * window1 = lv_tileview_add_tile(window, 0, 0, LV_DIR_RIGHT);
   lv_obj_t *rabbit_gif = lv_gif_create(window1);
   lv_gif_set_src(rabbit_gif, &rabbit);
   lv_obj_align(rabbit_gif, LV_ALIGN_CENTER, 0, -20);
-  lv_obj_t * time_label = lv_label_create(window1);
+  time_label = lv_label_create(window1);
   lv_label_set_text(time_label, "99:99");
-  lv_obj_set_style_text_font(time_label, &lv_font_montserrat_36, 0);
-  lv_obj_set_width(time_label, 200);  /*Set smaller width to make the lines wrap*/
+  lv_obj_set_style_text_font(time_label, &lv_font_montserrat_44, 0);
+  //lv_obj_set_width(time_label, );  /*Set smaller width to make the lines wrap*/
   lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
   lv_obj_align(time_label, LV_ALIGN_CENTER, 0, -40);
 
-  lv_obj_t * window2 = lv_tileview_add_tile(window, 0, 1, LV_DIR_TOP);
+  lv_obj_t * window2 = lv_tileview_add_tile(window, 1, 0, LV_DIR_LEFT);
   lv_obj_t * label = lv_label_create(window2);
   lv_label_set_text(label, "can you see me");
   lv_obj_center(label);
   bsp_display_unlock();
+
+  xTaskCreate(&time_update_task,"timer task",2 *1024,NULL,3,NULL);
+
+
 
 }
 
