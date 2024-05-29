@@ -40,7 +40,7 @@ typedef struct {
 } voice_mapping_t;
 
 char *do_action(int id) {
-  char * res = malloc(MAX_STRING_LENGTH);
+  // char * res = malloc(MAX_STRING_LENGTH);
   switch (id) {
   case 0:
     return "Please repeat That";
@@ -52,17 +52,7 @@ char *do_action(int id) {
     return "Turning on";
     break;
   case 3: {
-
-    time_t now;
-    struct tm timeinfo;
-    time(&now);
-    localtime_r(&now, &timeinfo);
-    int day = timeinfo.tm_mday;
-    int month = timeinfo.tm_mon + 1; // Months are 0-based
-    int year = timeinfo.tm_year + 1900; // Years since 1900
-    printf("Today's date: %02d %02d %d\n", day, month, year);
-    sprintf(res,"Today's date: %02d %02d %d\n", day, month, year);
-    return res;
+    return get_time(MAX_STRING_LENGTH -1);
     break;
   }
   }
@@ -133,13 +123,6 @@ void detect_Task(void *arg) {
     voice_mapping_t *voice = &voice_lookup[i];
     esp_mn_commands_add(i, voice->token);
   }
-  
-  
-  
-
-  
-  // esp_mn_commands_add(1, "Pebble"); // add a command
-  // esp_mn_commands_add(2, "Turn on the light"); // add a command
   esp_mn_commands_update(); // update commands
   int mu_chunksize = multinet->get_samp_chunksize(model_data);
   assert(mu_chunksize == afe_chunksize);
@@ -216,11 +199,28 @@ static void app_sr_init() {
       esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);
   afe_config.aec_init = false;
   esp_afe_sr_data_t *afe_data = afe_handle->create_from_config(&afe_config);
-  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,
-                          &detect_handel, 1);
-  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,
-                          &voice_handel, 1);
+  xTaskCreatePinnedToCore(&detect_Task, "detect", 8 * 1024, (void *)afe_data, 5,&detect_handel, 0);
+  xTaskCreatePinnedToCore(&feed_Task, "feed", 8 * 1024, (void *)afe_data, 5,&voice_handel, 1);
 }
+
+void display_init()
+{
+  bsp_display_lock(0);
+  LV_IMG_DECLARE(rabbit);
+  lv_obj_t *img;
+
+  img = lv_gif_create(lv_scr_act());
+  lv_gif_set_src(img, &rabbit);
+  lv_obj_align(img, LV_ALIGN_CENTER, 0, -20);
+  bsp_display_unlock();
+
+}
+
+
+
+
+
+
 
 void app_main(void) {
   device_init();
@@ -230,13 +230,7 @@ void app_main(void) {
   bsp_display_backlight_on();
   bsp_display_brightness_set(10);
   app_sr_init();
+  display_init();
 
-  bsp_display_lock(0);
-  LV_IMG_DECLARE(rabbit);
-  lv_obj_t *img;
 
-  img = lv_gif_create(lv_scr_act());
-  lv_gif_set_src(img, &rabbit);
-  lv_obj_align(img, LV_ALIGN_CENTER, 0, -20);
-  bsp_display_unlock();
 }

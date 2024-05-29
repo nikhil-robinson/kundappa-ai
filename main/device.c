@@ -364,3 +364,22 @@ void device_init() {
 }
 
 void device_deinit() { iot_button_delete(g_btns[0]); }
+
+char * res = NULL;
+char * get_time(int size)
+{
+    if (res ==NULL)
+    {
+      res = malloc(size);
+    }
+    bzero(res,size);
+    time_t now;
+    struct tm timeinfo;
+    time(&now);
+    localtime_r(&now, &timeinfo);
+    int day = timeinfo.tm_mday;
+    int month = timeinfo.tm_mon + 1; // Months are 0-based
+    int year = timeinfo.tm_year + 1900; // Years since 1900
+    sprintf(res,"Today's date: %02d %02d %d\n", day, month, year);
+    return res;
+}

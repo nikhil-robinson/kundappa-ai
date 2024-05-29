@@ -3,3 +3,4 @@
 
 void device_init();
 void device_deinit();
+char * get_time(int size);

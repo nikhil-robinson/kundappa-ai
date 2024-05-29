@@ -470,6 +470,7 @@ esp_err_t bsp_board_init(uint32_t sample_rate, int channel_format, int bits_per_
     return ESP_OK;
 }
 
+
 esp_err_t bsp_sdcard_init(char *mount_point, size_t max_files)
 {
     if (NULL != card) {
@@ -611,4 +612,32 @@ esp_err_t bsp_sdcard_deinit(char *mount_point)
     card = NULL;
 
     return ret_val;
+}
+
+
+esp_err_t bsp_codec_set_fs(uint32_t rate, uint32_t bits_cfg, i2s_slot_mode_t ch)
+{
+    esp_err_t ret = ESP_OK;
+
+    esp_codec_dev_sample_info_t fs = {
+        .sample_rate = rate,
+        .channel = ch,
+        .bits_per_sample = bits_cfg,
+    };
+
+    if (play_dev) {
+        ret = esp_codec_dev_close(play_dev);
+    }
+    if (record_dev) {
+        ret |= esp_codec_dev_close(record_dev);
+        ret |= esp_codec_dev_set_in_gain(record_dev, 50);
+    }
+
+    if (play_dev) {
+        ret |= esp_codec_dev_open(play_dev, &fs);
+    }
+    if (record_dev) {
+        ret |= esp_codec_dev_open(record_dev, &fs);
+    }
+    return ret;
 }
