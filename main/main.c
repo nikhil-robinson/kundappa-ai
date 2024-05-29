@@ -207,11 +207,22 @@ void display_init()
 {
   bsp_display_lock(0);
   LV_IMG_DECLARE(rabbit);
-  lv_obj_t *img;
+  lv_obj_t * window = lv_tileview_create(lv_scr_act());
+  lv_obj_t * window1 = lv_tileview_add_tile(window, 0, 0, LV_DIR_BOTTOM);
+  lv_obj_t *rabbit_gif = lv_gif_create(window1);
+  lv_gif_set_src(rabbit_gif, &rabbit);
+  lv_obj_align(rabbit_gif, LV_ALIGN_CENTER, 0, -20);
+  lv_obj_t * time_label = lv_label_create(window1);
+  lv_label_set_text(time_label, "99:99");
+  lv_obj_set_style_text_font(time_label, &lv_font_montserrat_36, 0);
+  lv_obj_set_width(time_label, 200);  /*Set smaller width to make the lines wrap*/
+  lv_obj_set_style_text_align(time_label, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_align(time_label, LV_ALIGN_CENTER, 0, -40);
 
-  img = lv_gif_create(lv_scr_act());
-  lv_gif_set_src(img, &rabbit);
-  lv_obj_align(img, LV_ALIGN_CENTER, 0, -20);
+  lv_obj_t * window2 = lv_tileview_add_tile(window, 0, 1, LV_DIR_TOP);
+  lv_obj_t * label = lv_label_create(window2);
+  lv_label_set_text(label, "can you see me");
+  lv_obj_center(label);
   bsp_display_unlock();
 
 }
