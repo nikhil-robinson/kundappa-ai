@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "OpenAI.h"
 
 #define TAG "PEBBLE"
 
@@ -33,6 +34,8 @@ static esp_afe_sr_iface_t *afe_handle = NULL;
 static srmodel_list_t *models = NULL;
 static TaskHandle_t voice_handel = NULL;
 static TaskHandle_t detect_handel = NULL;
+
+static char *openai_key = CONFIG_OPEN_AI_KEY;
 
 /*Create an AZERTY keyboard map*/
 static const char *kb_map[] = {"Q",
@@ -155,6 +158,60 @@ static void say_this(char *received_message, size_t len) {
     vTaskDelay(1);
   }
   vTaskResume(voice_handel);
+}
+
+static char open_ai_response[1024];
+
+static void get_openai_response(char * text)
+{
+    memset(open_ai_response,'\0',sizeof(open_ai_response));
+
+    OpenAI_t *openai = OpenAICreate(openai_key);
+    if(!openai)
+    {
+      return;
+    }
+    OpenAI_ChatCompletion_t *chatCompletion = openai->chatCreate(openai);
+    if(!chatCompletion)
+    {
+      return;
+    }
+    chatCompletion->setModel(chatCompletion, "gpt-4o");  //Model to use for completion. Default is gpt-3.5-turbo
+    chatCompletion->setSystem(chatCompletion, "You are a helpful assistant.");     //Description of the required assistant
+    chatCompletion->setMaxTokens(chatCompletion, 255);         //The maximum number of tokens to generate in the completion.
+    chatCompletion->setTemperature(chatCompletion, 0.2);        //float between 0 and 1. Higher value gives more random results.
+    chatCompletion->setStop(chatCompletion, "\r");              //Up to 4 sequences where the API will stop generating further tokens.
+    chatCompletion->setPresencePenalty(chatCompletion, 0);      //float between -2.0 and 2.0. Positive values increase the model's likelihood to talk about new topics.
+    chatCompletion->setFrequencyPenalty(chatCompletion, 0);     //float between -2.0 and 2.0. Positive values decrease the model's likelihood to repeat the same line verbatim.
+    chatCompletion->setUser(chatCompletion, "OpenAI-PEBBLE");    //A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse.
+
+
+    OpenAI_StringResponse_t *result = chatCompletion->message(chatCompletion, text, false);
+    if(!result)
+    {
+      ESP_LOGE(TAG, "Error! falied to crete OPENAI instance");
+    }
+    if (result->getLen(result) == 1) {
+        ESP_LOGI(TAG, "Received message. Tokens: %"PRIu32"", result->getUsage(result));
+        char *response = result->getData(result, 0);
+        memcpy(open_ai_response,response,strlen(response));
+        say_this(open_ai_response,strlen(response));
+        ESP_LOGI(TAG, "%s", response);
+    } else if (result->getLen(result) > 1) {
+        ESP_LOGI(TAG, "Received %"PRIu32" messages. Tokens: %"PRIu32"", result->getLen(result), result->getUsage(result));
+        for (int i = 0; i < result->getLen(result); ++i) {
+            char *response = result->getData(result, i);
+            ESP_LOGI(TAG, "Message[%d]: %s", i, response);
+        }
+    } else if (result->getError(result)) {
+        ESP_LOGE(TAG, "Error! %s", result->getError(result));
+    } else {
+        ESP_LOGE(TAG, "Unknown error!");
+    }
+
+    result->deleteResponse(result);
+    openai->chatDelete(chatCompletion);
+    OpenAIDelete(openai);
 }
 
 void feed_Task(void *arg) {
@@ -293,7 +350,7 @@ static void ta_event_cb(lv_event_t * e)
     lv_obj_t * kb = lv_event_get_target(e);
     lv_obj_t * ta = lv_event_get_user_data(e);
     if(code == LV_EVENT_READY) {
-        printf("Ready, current text: %s\n", lv_textarea_get_text(ta));
+        get_openai_response(lv_textarea_get_text(ta));
     }
 }
 

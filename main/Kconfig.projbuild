@@ -141,3 +141,12 @@ menu "IoT Button Config"
             "Number of samples per scan"
 
 endmenu
+
+
+menu "OpenAI"
+
+    config OPEN_AI_KEY
+        string "API KEY"
+        help
+            Your OPENAI API key.
+endmenu
